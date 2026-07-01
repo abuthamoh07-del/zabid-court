@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>نظام محكمة زبيد السحابي - الإصدار المعتمد</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --gold: #c5a059; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; text-align: right; }
+        .main-header { background: var(--primary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); min-height: 140px; }
+        #logo-right, #logo-left { width: 120px; height: 120px; border-radius: 10px; background: white; object-fit: contain; }
+        .flashing-title { animation: colorFlash 3s infinite; font-size: 26px; }
+        @keyframes colorFlash { 0%, 100% { color: #fff; } 50% { color: var(--gold); } }
+        nav { display: flex; justify-content: center; background: #34495e; padding: 10px; gap: 10px; }
+        nav button { background: none; border: 1px solid var(--gold); color: white; padding: 10px 18px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .main-layout { display: flex; padding: 20px; gap: 20px; max-width: 1400px; margin: auto; }
+        .sidebar { width: 280px; background: white; border-radius: 10px; padding: 15px; border: 1px solid #ddd; }
+        .news-display { flex: 1; background: white; border-radius: 10px; padding: 25px; border: 1px solid #ddd; min-height: 500px; }
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); overflow-y: auto; }
+        .modal-content { background: white; margin: 2% auto; padding: 30px; width: 92%; border-radius: 15px; }
+        .close { float: left; font-size: 30px; cursor: pointer; color: red; }
+        input, select, textarea { padding: 10px; border: 1px solid #ccc; border-radius: 6px; width: 100%; margin: 5px 0; box-sizing: border-box; }
+        .btn-save { background: var(--primary); color: white; border: none; padding: 12px; cursor: pointer; border-radius: 6px; font-weight: bold; width: 100%; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background: var(--primary); color: white; }
+        .result-card { position: relative; background: #fffdf5; padding: 25px; border: 2px solid var(--gold); border-radius: 12px; margin-top: 20px; background-image: url('as.jpg'); background-repeat: no-repeat; background-position: center; background-size: 250px; background-blend-mode: overlay; }
+        .login-box { max-width: 350px; margin: 50px auto; padding: 30px; border: 2px solid var(--gold); border-radius: 15px; background: white; }
+    </style>
+</head>
+<body>
+
+<header class="main-header">
+    <img id="logo-right" src="as.jpg" alt="Logo">
+    <div style="text-align: center;">
+        <h1 class="flashing-title">البوابة الإلكترونية لمحكمة زبيد الابتدائية</h1>
+        <p>تحت إشراف وزارة العدل - تصميم عبدالملك البطاح</p>
+    </div>
+    <img id="logo-left" src="aa.jpg" alt="Logo">
+</header>
+
+<nav>
+    <button onclick="openM('searchM')">🔍 استعلام المواطن</button>
+    <button onclick="openM('userM')">👤 لوحة الموظفين</button>
+    <button onclick="openM('adminM')">⚙️ الإدارة</button>
+    <button onclick="openM('editorM')" style="background:var(--gold); color:black">✍️ المحرر</button>
+</nav>
+
+<div class="main-layout">
+    <aside class="sidebar"><h3>📰 أخبار المحكمة</h3><div id="sideNews">جاري تحميل الأخبار السحابية...</div></aside>
+    <main class="news-display">
+        <div id="welcomeMsg" style="text-align:center; margin-top:100px; color:#95a5a6;"><h2>مرحباً بك في النظام السحابي</h2><p>اختر خبراً من القائمة الجانبية</p></div>
+        <article id="articleViewer" style="display:none;"><h1 id="vTitle"></h1><p id="vBody" style="line-height:1.8; white-space:pre-wrap;"></p><div id="vMedia"></div></article>
+    </main>
+</div>
+
+<div id="searchM" class="modal"><div class="modal-content"><span class="close" onclick="closeM('searchM')">&times;</span><h2>🔍 استعلام المواطن</h2><input type="number" id="qNum" placeholder="أدخل رقم القضية"><button class="btn-save" onclick="citizenSearch()">بحث سحابي</button><div id="qRes"></div></div></div>
+
+<div id="userM" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeM('userM')">&times;</span>
+        <div id="uLogin" class="login-box"><h3>🔑 دخول الموظف</h3><input type="text" id="uUserIn" placeholder="الاسم"><input type="password" id="uPassIn" placeholder="السر"><button class="btn-save" onclick="loginEmployee()">دخول</button></div>
+        <div id="uDash" style="display:none;">
+            <h2 id="uHello"></h2>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                <div style="background:#f9f9f9; padding:15px; border-radius:10px;">
+                    <h3>➕ إضافة قضية</h3>
+                    <input type="number" id="cNum" placeholder="رقم القضية"><input type="text" id="cPlaint" placeholder="المدعي"><input type="text" id="cDefend" placeholder="المدعى عليه"><input type="text" id="cJudge" placeholder="القاضي">
+                    <select id="cType"><option value="مدني">مدني</option><option value="شخصي">شخصي</option><option value="جنائي">جنائي</option></select>
+                    <button class="btn-save" onclick="saveNewCase()">حفظ سحابي</button>
+                </div>
+                <div style="background:#f9f9f9; padding:15px; border-radius:10px;">
+                    <h3>📝 تحديث (قضاياك)</h3>
+                    <input type="number" id="upNum" placeholder="رقم القضية"><input type="date" id="upDate"><select id="upStatus"><option value="منظورة">منظورة</option><option value="حكمت">حكمت</option></select>
+                    <textarea id="upVerdict" placeholder="القرار/الحكم"></textarea><button class="btn-save" style="background:green" onclick="updateCaseInfo()">تحديث البيانات</button>
+                </div>
+            </div>
+            <div style="margin-top:20px;"><h3>📂 المستندات المرفوعة</h3><input type="number" id="fCaseNum" placeholder="رقم القضية" style="width:200px"><button onclick="openMyDocs()">فتح الحافظة</button><div id="docsArea"></div></div>
+        </div>
+    </div>
+</div>
+
+<div id="adminM" class="modal">
+    <div class="modal-content"><span class="close" onclick="closeM('adminM')">&times;</span>
+        <div id="admLogin" class="login-box"><h3>🔐 دخول المدير</h3><input type="text" id="admUserIn" placeholder="الاسم"><input type="password" id="admPassIn" placeholder="السر"><button class="btn-save" onclick="loginAdmin()">دخول</button></div>
+        <div id="admDash" style="display:none;">
+            <h2>⚙️ لوحة الإدارة</h2>
+            <button onclick="toggleUserManagement()" class="btn-save" style="background:#8e44ad; width:auto">👥 إدارة الموظفين</button>
+            <button onclick="promptAddUser()" class="btn-save" style="width:auto">➕ إضافة موظف</button>
+            <div id="userManagementSection" style="display:none;"><table id="usersTable"><thead><tr><th>الموظف</th><th>السر</th><th>إجراء</th></tr></thead><tbody id="usersListBody"></tbody></table></div>
+            <h3>📊 جدول القضايا السحابي الشامل</h3>
+            <table id="adminCasesTable"><thead><tr><th>رقم</th><th>المدعي</th><th>المدعى عليه</th><th>القاضي</th><th>الموظف</th><th>الحالة</th><th>الجلسة</th></tr></thead><tbody id="adminCasesBody"></tbody></table>
+        </div>
+    </div>
+</div>
+
+<div id="editorM" class="modal">
+    <div class="modal-content"><span class="close" onclick="closeM('editorM')">&times;</span>
+        <div id="edLogin" class="login-box"><h3>🔐 دخول المحرر</h3><input type="text" id="edUserIn" placeholder="الاسم"><input type="password" id="edPassIn" placeholder="السر"><button class="btn-save" onclick="loginEditor()">دخول</button></div>
+        <div id="edDash" style="display:none;"><h2>✍️ إدارة الأخبار</h2><input type="text" id="nTitle" placeholder="العنوان"><textarea id="nBody" rows="4" placeholder="التفاصيل"></textarea><input type="file" id="nFile"><button class="btn-save" onclick="publishNews()">نشر سحابي</button><div id="edNewsList"></div></div>
+    </div>
+</div>
+
+<script>
+// --- إعدادات مشروعك الحقيقية ---
+const firebaseConfig = {
+    apiKey: "AIzaSyARw7_HcflJNDO2F8VRXdRb2p0gRZ-7fp8",
+    authDomain: "zabid-court1.firebaseapp.com",
+    databaseURL: "https://zabid-court1-default-rtdb.firebaseio.com",
+    projectId: "zabid-court1",
+    storageBucket: "zabid-court1.firebasestorage.app",
+    messagingSenderId: "150936637118",
+    appId: "1:150936637118:web:a2ae588806ebe53bf398ef",
+    measurementId: "G-91HQZS60BL"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+let currentSessionUser = "";
+
+function openM(id) { document.getElementById(id).style.display = "block"; }
+function closeM(id) { document.getElementById(id).style.display = "none"; }
+
+// --- وظائف الموظفين والقضايا ---
+function saveNewCase() {
+    const id = document.getElementById('cNum').value;
+    if(!id) return alert("أدخل رقم القضية");
+    db.ref('cases/' + id).set({
+        id: id, plaintiff: document.getElementById('cPlaint').value,
+        defendant: document.getElementById('cDefend').value, judge: document.getElementById('cJudge').value,
+        type: document.getElementById('cType').value, createdBy: currentSessionUser,
+        status: 'منظورة', nextDate: '', verdict: ''
+    }).then(() => { alert("تم الحفظ سحابياً بنجاح"); document.getElementById('cNum').value=""; });
+}
+
+function updateCaseInfo() {
+    const id = document.getElementById('upNum').value;
+    db.ref('cases/' + id).once('value').then(s => {
+        if(!s.exists()) return alert("القضية غير موجودة");
+        if(s.val().createdBy !== currentSessionUser) return alert("ليست من اختصاصك");
+        db.ref('cases/' + id).update({
+            status: document.getElementById('upStatus').value,
+            nextDate: document.getElementById('upDate').value,
+            verdict: document.getElementById('upVerdict').value
+        }).then(() => alert("تم التحديث سحابياً"));
+    });
+}
+
+function citizenSearch() {
+    const id = document.getElementById('qNum').value;
+    db.ref('cases/' + id).on('value', s => {
+        const c = s.val(); const res = document.getElementById('qRes');
+        if(c) {
+            res.innerHTML = `<div class="result-card"><h3>قضية رقم ${c.id}</h3><p>المدعي: ${c.plaintiff} | المدعى عليه: ${c.defendant}</p><p>القاضي: ${c.judge} | الحالة: ${c.status}</p><p>الجلسة: ${c.nextDate || 'لم تحدد'}</p><div style="background:white;padding:10px;"><b>الحكم:</b> ${c.verdict || 'لا يوجد'}</div><hr>
+            <b>📤 رفع مستند:</b> <select id="partyT"><option value="المدعي">المدعي</option><option value="المدعى عليه">المدعى عليه</option></select>
+            <input type="file" id="fCit"><button onclick="cloudUpload('${c.id}')">رفع للسحابة</button></div>`;
+        } else res.innerHTML = "رقم القضية غير صحيح أو لا يوجد بيانات";
+    });
+}
+
+function cloudUpload(caseId) {
+    const file = document.getElementById('fCit').files[0];
+    const party = document.getElementById('partyT').value;
+    if(!file) return alert("اختر ملف أولاً");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        db.ref('docs').push({ caseId, party, name: file.name, data: e.target.result });
+        alert("تم رفع المستند للسحابة بنجاح");
+    };
+    reader.readAsDataURL(file);
+}
+
+// --- وظائف الإدارة ---
+function loginAdmin() {
+    const u = document.getElementById('admUserIn').value, p = document.getElementById('admPassIn').value;
+    if(u === "عتيق" && p === "735715") {
+        document.getElementById('admLogin').style.display='none'; document.getElementById('admDash').style.display='block';
+        db.ref('cases').on('value', s => {
+            let html = ""; s.forEach(c => { const v = c.val(); html += `<tr><td>${v.id}</td><td>${v.plaintiff}</td><td>${v.defendant}</td><td>${v.judge}</td><td>${v.createdBy}</td><td>${v.status}</td><td>${v.nextDate}</td></tr>`; });
+            document.getElementById('adminCasesBody').innerHTML = html;
+        });
+    } else alert("بيانات المدير غير صحيحة");
+}
+
+function promptAddUser() {
+    const u = prompt("اسم الموظف الجديد:"), p = prompt("كلمة السر:");
+    if(u && p) db.ref('users').push({user:u, pass:p});
+}
+
+function toggleUserManagement() {
+    const s = document.getElementById('userManagementSection'); s.style.display = s.style.display==='none'?'block':'none';
+    db.ref('users').on('value', s => {
+        let html = ""; s.forEach(u => { html += `<tr><td>${u.val().user}</td><td>${u.val().pass}</td><td><button onclick="db.ref('users/${u.key}').remove()" style="color:red">حذف</button></td></tr>`; });
+        document.getElementById('usersListBody').innerHTML = html;
+    });
+}
+
+function loginEmployee() {
+    const u = document.getElementById('uUserIn').value, p = document.getElementById('uPassIn').value;
+    db.ref('users').once('value', s => {
+        let ok = false; s.forEach(c => { if(c.val().user===u && c.val().pass===p) ok=true; });
+        if(ok) { currentSessionUser = u; document.getElementById('uLogin').style.display='none'; document.getElementById('uDash').style.display='block'; document.getElementById('uHello').innerText = "الموظف: " + u; }
+        else alert("خطأ في دخول الموظف");
+    });
+}
+
+function openMyDocs() {
+    const id = document.getElementById('fCaseNum').value;
+    db.ref('docs').orderByChild('caseId').equalTo(id).on('value', s => {
+        let html = ""; s.forEach(d => { html += `<div style="padding:10px; border-bottom:1px solid #eee;"><b>${d.val().party}:</b> ${d.val().name} <button onclick="window.open('${d.val().data}')">فتح</button></div>`; });
+        document.getElementById('docsArea').innerHTML = html || "لا توجد مستندات لهذه القضية";
+    });
+}
+
+// --- وظائف المحرر (تمت إضافتها وتفعيلها) ---
+function loginEditor() {
+    const u = document.getElementById('edUserIn').value, p = document.getElementById('edPassIn').value;
+    // بيانات دخول المحرر (يمكنك تغييرها من هنا)
+    if(u === "عبدالملك" && p === "735715") {
+        document.getElementById('edLogin').style.display='none';
+        document.getElementById('edDash').style.display='block';
+    } else {
+        alert("بيانات دخول المحرر غير صحيحة");
+    }
+}
+
+function publishNews() {
+    const t = document.getElementById('nTitle').value, b = document.getElementById('nBody').value, f = document.getElementById('nFile').files[0];
+    if(!t || !b) return alert("يرجى ملء العنوان والتفاصيل");
+    const newsData = { title: t, body: b, time: Date.now() };
+    if(f) { 
+        const r = new FileReader(); 
+        r.onload = (e) => { 
+            newsData.media = e.target.result; 
+            newsData.mType = f.type; 
+            db.ref('news').push(newsData); 
+            alert("تم نشر الخبر سحابياً"); 
+            clearEditor();
+        }; 
+        r.readAsDataURL(f); 
+    } else { 
+        db.ref('news').push(newsData); 
+        alert("تم النشر بنجاح"); 
+        clearEditor();
+    }
+}
+
+function clearEditor() {
+    document.getElementById('nTitle').value = "";
+    document.getElementById('nBody').value = "";
+    document.getElementById('nFile').value = "";
+}
+
+function loadSidebar() {
+    db.ref('news').on('value', s => {
+        let html = ""; s.forEach(n => { html += `<div style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="showArt('${n.key}')">${n.val().title}</div>`; });
+        document.getElementById('sideNews').innerHTML = html;
+    });
+}
+
+function showArt(key) {
+    db.ref('news/' + key).once('value', s => {
+        const n = s.val(); document.getElementById('welcomeMsg').style.display='none'; document.getElementById('articleViewer').style.display='block';
+        document.getElementById('vTitle').innerText = n.title; document.getElementById('vBody').innerText = n.body;
+        const mv = document.getElementById('vMedia'); mv.innerHTML = "";
+        if(n.media) { if(n.mType.includes('image')) mv.innerHTML = `<img src="${n.media}" style="width:100%">`; else mv.innerHTML = `<video src="${n.media}" controls style="width:100%"></video>`; }
+    });
+}
+
+window.onload = loadSidebar;
+</script>
+</body>
+</html>
